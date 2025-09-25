@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "702466027131",
+    "project_id": "registra-3682e",
+    "storage_bucket": "registra-3682e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:702466027131:android:65182369b014e125d6bcde",
+        "android_client_info": {
+          "package_name": "com.example.final_project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-S4bv5lbryOX5UQzWJWOTFoQHr6wzTsM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
