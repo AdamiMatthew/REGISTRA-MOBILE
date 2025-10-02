@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+// Removed flutter_screenutil to avoid initialization errors
 import 'package:cached_network_image/cached_network_image.dart';
 
 
@@ -29,7 +29,7 @@ class CustomDialogs {
       required String content,
       required Function onYes}) {
     AlertDialog alertDialog = AlertDialog(
-      title: Text(title, style: TextStyle(fontSize: 30.sp)),
+      title: Text(title, style: const TextStyle(fontSize: 20)),
       content: Text(content),
       actions: <Widget>[
         OutlinedButton(
@@ -64,7 +64,7 @@ class CustomDialogs {
       {required String imageUrl}) {
     AlertDialog alertDialog = AlertDialog(
       content: SizedBox(
-        height: 300.h,
+        height: 300.0,
         child: Center(
           child: CachedNetworkImage(
             imageUrl: imageUrl,
@@ -75,7 +75,7 @@ class CustomDialogs {
             ),
             errorWidget: (context, url, error) => Icon(
               Icons.error,
-              size: 100.sp,
+              size: 100.0,
             ),
           ),
         ),

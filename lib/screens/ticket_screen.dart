@@ -14,6 +14,7 @@ class TicketScreen extends StatefulWidget {
   final String image;
   final String eventDate;
   final String eventTime;
+  final bool scanned;
 
   const TicketScreen({
     super.key,
@@ -24,6 +25,7 @@ class TicketScreen extends StatefulWidget {
     required this.image,
     required this.eventDate,
     required this.eventTime,
+    this.scanned = false,
   });
 
   @override
@@ -33,12 +35,18 @@ class TicketScreen extends StatefulWidget {
 class _TicketScreenState extends State<TicketScreen> {
   String? ticketQR;
   String userName = "";
+  bool attended = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
     fetchTicketQR();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.scanned) {
+        _onTicketScannedSuccess();
+      }
+    });
   }
 
   Future<void> _loadUserName() async {
@@ -83,9 +91,16 @@ Future<void> _onTicketScannedSuccess() async {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {
-          final fullQR = data['ticketQR'];
-          ticketQR = fullQR.split(',').last;
+          final fullQR = data['ticketQR'] ?? '';
+          ticketQR = fullQR.isNotEmpty ? fullQR.split(',').last : '';
+          attended = (data['attended'] == true);
         });
+        if (mounted && attended) {
+          // Show welcome once when attended is true
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _onTicketScannedSuccess();
+          });
+        }
         //print("Fetched Ticket QR: $ticketQR");
 
         // Notification removed; handled centrally elsewhere
@@ -124,9 +139,14 @@ Future<void> _onTicketScannedSuccess() async {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leading: Semantics(
+          label: 'Back',
+          button: true,
+          child: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
       ),
       body: SingleChildScrollView(

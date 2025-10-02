@@ -1,7 +1,7 @@
 import 'package:final_project/config.dart';
 import 'package:final_project/firebase_Api/firebase_api.dart';
-import 'package:final_project/screens/login_screen.dart';
 import 'package:final_project/screens/ticket_screen.dart';
+import 'package:final_project/screens/payment_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +25,7 @@ class _EventListScreenState extends State<EventListScreen> {
   bool isLoading = true;
   Set<String> _notifiedTickets = {}; // Track which tickets we've already notified about
   Set<String> _scheduledReminders = {}; // Track which 1-day reminders are scheduled
+  String? _currentUserId; // Store current user id for use in build
 
   @override
   void initState() {
@@ -37,6 +38,9 @@ class _EventListScreenState extends State<EventListScreen> {
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? userId = prefs.getString('_id');
+
+    // Cache for build usage
+    _currentUserId = userId;
 
     if (userId == null) {
       //print("User ID not found.");
@@ -310,7 +314,7 @@ class _EventListScreenState extends State<EventListScreen> {
                       _buildStatusIndicator(
                         color: const Color(0xFFDC143C),
                         borderColor: Colors.black,
-                        text: 'Waiting For QR ',
+                        text: 'Pending QR ',
                       ),
                     ],
                   ),
@@ -337,7 +341,7 @@ class _EventListScreenState extends State<EventListScreen> {
 
                             // Find the registration where the user is registered
                             var registration = event['registrations']?.firstWhere(
-                              (reg) => reg['userId'] == prefs.getString('_id'), // Use prefs inside build method if needed
+                              (reg) => reg['userId'] == _currentUserId,
                               orElse: () => null,
                             );
 
@@ -345,6 +349,10 @@ class _EventListScreenState extends State<EventListScreen> {
                             bool hasQRImage = registration != null &&
                                 registration['ticketQR'] != null &&
                                 registration['ticketQR'].isNotEmpty;
+
+                            // Check if payment is rejected
+                            bool isPaymentRejected = registration != null &&
+                                (registration['paymentStatus']?.toString().toLowerCase() == 'rejected');
 
                             // Format the event date
                             String formattedDate = '';
@@ -358,148 +366,259 @@ class _EventListScreenState extends State<EventListScreen> {
                               }
                             }
 
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TicketScreen(
-                                      title: event['title'] ?? 'No Title',
-                                      location: event['location'] ?? 'No Location',
-                                      ticketQR: hasQRImage
-                                          ? registration['ticketQR']
-                                          : '',
-                                      registrationsId: registration?['_id'] ?? '',
-                                      image: event['image'] ?? '',
-                                      eventDate: event['date'] ?? '',
-                                      eventTime: event['time'] ?? '',
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Card(
-                                color: hasQRImage
-                                    ? const Color(0xFF4682B4) // Blue
-                                    : const Color(0xFFDC143C), // Red
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 6), // Adjusted margin
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12), // Slightly smaller radius
-                                ),
-                                elevation: 4, // Increased elevation
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16), // Increased padding
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: image != null &&
-                                                image.isNotEmpty
-                                            ? Image.network(
-                                                image,
-                                                width: 90, // Slightly smaller image
-                                                height: 90, // Slightly smaller image
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return Container(
-                                                    width: 90,
-                                                    height: 90,
-                                                    color: Colors.grey[300],
-                                                    child: const Icon(
-                                                        Icons.broken_image,
-                                                        size: 30,
-                                                        color: Colors.grey),
-                                                  );
-                                                },
-                                              )
-                                            : Container(
-                                                width: 90,
-                                                height: 90,
-                                                color: Colors.grey[300],
-                                                child: const Icon(
-                                                    Icons.image_not_supported,
-                                                    size: 30,
-                                                    color: Colors.grey),
-                                              ),
-                                      ),
-                                      const SizedBox(width: 16), // Increased spacing
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              event['title'] ?? 'No Title',
-                                              style: const TextStyle( // Simplified style
-                                                fontSize: 17, // Slightly larger font
-                                                fontWeight: FontWeight.w700, // Bolder
-                                                color: Colors.white,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 6), // Increased spacing
-                                            if (hostName != null &&
-                                                hostName.isNotEmpty)
-                                              Text(
-                                                'Hosted by: $hostName',
-                                                style: TextStyle(
-                                                  fontSize: 13, // Slightly smaller
-                                                  color: Colors.white.withOpacity(0.9), // Slightly transparent white
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            const SizedBox(height: 6), // Increased spacing
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.location_on,
-                                                    size: 15, // Slightly smaller icon
-                                                    color: Colors.white70), // Slightly transparent white
-                                                const SizedBox(width: 6), // Increased spacing
-                                                Expanded(
-                                                  child: Text(
-                                                    event['location'] ??
-                                                        'No Location',
-                                                    style: TextStyle(
-                                                      fontSize: 13, // Slightly smaller
-                                                      color: Colors.white.withOpacity(0.9), // Slightly transparent white
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6), // Increased spacing
-                                            if (formattedDate.isNotEmpty)
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                      Icons.calendar_month,
-                                                      size: 15, // Slightly smaller icon
-                                                      color: Colors.white70), // Slightly transparent white
-                                                  const SizedBox(width: 6), // Increased spacing
-                                                  Text(
-                                                    formattedDate,
-                                                    style: TextStyle(
-                                                      fontSize: 13, // Slightly smaller
-                                                      color: Colors.white.withOpacity(0.9), // Slightly transparent white
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                           // ...existing code...
+return GestureDetector(
+  onTap: () {
+    // If ticket QR exists, allow navigation regardless of previous status
+    if (hasQRImage) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TicketScreen(
+            title: event['title'] ?? 'No Title',
+            location: event['location'] ?? 'No Location',
+            ticketQR: registration?['ticketQR'] ?? '',
+            registrationsId: registration?['_id'] ?? '',
+            image: event['image'] ?? '',
+            eventDate: event['date'] ?? '',
+            eventTime: event['time'] ?? '',
+          ),
+        ),
+      );
+      return;
+    }
+    // Handle payment rejected with option to resend
+    if (isPaymentRejected) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Payment Rejected'),
+          content: const Text(
+              'Your payment was rejected by the admin. You can resend your receipt for review.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PaymentScreen(
+                      eventId: event['_id']?.toString() ?? '',
+                      ticketPrice: (event['price'] as num?)?.toDouble() ?? 0.0,
+                      eventName: event['title']?.toString() ?? 'Event',
+                      eventDate: event['date']?.toString() ?? '',
+                      eventTime: event['time']?.toString() ?? '',
+                      registrationId: registration?['_id']?.toString(),
+                    ),
+                  ),
+                ).then((_) {
+                  fetchRegisteredEvents();
+                });
+              },
+              child: const Text('Resend Receipt'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    // Only allow navigation if not admin rejected
+    if (registration == null || registration['status'] != 'rejected') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TicketScreen(
+            title: event['title'] ?? 'No Title',
+            location: event['location'] ?? 'No Location',
+            ticketQR: hasQRImage ? registration['ticketQR'] : '',
+            registrationsId: registration?['_id'] ?? '',
+            image: event['image'] ?? '',
+            eventDate: event['date'] ?? '',
+            eventTime: event['time'] ?? '',
+          ),
+        ),
+      );
+    }
+  },
+  child: Card(
+    // ---- Card Color Logic ----
+    color: registration != null && registration['status'] == 'rejected'
+        ? Colors.grey[600] // Gray if rejected
+        : hasQRImage
+            ? const Color(0xFF4682B4) // Blue if has QR
+            : const Color(0xFFDC143C), // Red if no QR
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    elevation: 4,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: image != null && image.isNotEmpty
+                ? Image.network(
+                    image,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 90,
+                        height: 90,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image,
+                            size: 30, color: Colors.grey),
+                      );
+                    },
+                  )
+                : Container(
+                    width: 90,
+                    height: 90,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.image_not_supported,
+                        size: 30, color: Colors.grey),
+                  ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event['title'] ?? 'No Title',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                if (hostName != null && hostName.isNotEmpty)
+                  Text(
+                    'Hosted by: $hostName',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on,
+                        size: 15, color: Colors.white70),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        event['location'] ?? 'No Location',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (formattedDate.isNotEmpty)
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_month,
+                          size: 15, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                // --- Show "Admin Rejected" label if rejected ---
+                if (registration != null &&
+                    registration['status'] == 'rejected')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      "Rejected (Reviewed by Admin)",
+                      style: const TextStyle(
+                        color: Colors.yellow,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                // --- Show "Payment Rejected" label if payment is rejected ---
+                if (isPaymentRejected)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "Payment Rejected",
+                            style: TextStyle(
+                              color: Colors.yellow,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PaymentScreen(
+                                  eventId: event['_id']?.toString() ?? '',
+                                  ticketPrice: (event['price'] as num?)?.toDouble() ?? 0.0,
+                                  eventName: event['title']?.toString() ?? 'Event',
+                                  eventDate: event['date']?.toString() ?? '',
+                                  eventTime: event['time']?.toString() ?? '',
+                                  registrationId: registration?['_id']?.toString(),
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              fetchRegisteredEvents();
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            backgroundColor: Colors.white,
+                          ),
+                          child: const Text(
+                            'Resend Receipt',
+                            style: TextStyle(color: Colors.black),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+
+// ...existing code...
                           },
                         ),
                       ),

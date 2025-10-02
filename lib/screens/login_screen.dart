@@ -111,13 +111,9 @@ void loginUser() async {
       passwordErrorMessage = "Password is required";
     });
     return;
-  } else if (password.length < 8 || password.length > 16) {
-    setState(() {
-      passwordError = true;
-      passwordErrorMessage = "Password must be 8-16 characters";
-    });
-    return;
-  }
+  } 
+  
+  
 
   var reqBody = {
     "email": email,
@@ -276,6 +272,7 @@ void loginUser() async {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.email_outlined),
                   hintText: "Email",
+                  labelText: "Email address",
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                   errorText: emailError ? emailErrorMessage : null,
@@ -290,18 +287,24 @@ void loginUser() async {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
                   hintText: "Your password",
+                  labelText: "Password",
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                   errorText: passwordError ? passwordErrorMessage : null,
-                  suffixIcon: IconButton(
-                    icon: Icon(isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        isPasswordVisible = !isPasswordVisible;
-                      });
-                    },
+                  suffixIcon: Semantics(
+                    label: isPasswordVisible ? 'Hide password' : 'Show password',
+                    button: true,
+                    child: IconButton(
+                      tooltip: isPasswordVisible ? 'Hide password' : 'Show password',
+                      icon: Icon(isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () {
+                        setState(() {
+                          isPasswordVisible = !isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -375,26 +378,26 @@ void loginUser() async {
 
               // Sign Up Navigation
               Center(
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(color: Colors.black),
-                    children: [
-                      const TextSpan(text: "Don't have an account? "),
-                      WidgetSpan(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen()),
-                            );
-                          },
-                          child: const Text("Sign up",
-                              style: TextStyle(color: Colors.blue)),
-                        ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Don't have an account? "),
+                    Semantics(
+                      label: 'Sign up',
+                      button: true,
+                      child: TextButton(
+                        style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 12)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const RegisterScreen()),
+                          );
+                        },
+                        child: const Text('Sign up', style: TextStyle(color: Colors.blue)),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],

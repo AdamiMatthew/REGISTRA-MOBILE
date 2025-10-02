@@ -24,8 +24,10 @@ class _PastEventScreenState extends State<PastEventScreen> {
 
   Future<void> fetchPastEvents() async {
     setState(() => isLoading = true);
-
-    final url = Uri.parse(allevents);
+    // For user-specific past events, use registeredPast which will apply server-side filters
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('_id');
+    final url = Uri.parse(userId != null ? '$registeredPast?userId=$userId' : allevents);
 
     try {
       final response = await http.get(url);
@@ -33,15 +35,20 @@ class _PastEventScreenState extends State<PastEventScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
 
-        DateTime now = DateTime.now();
+        // Defensive client-side filter for paid + attended if server didn't enforce
         List<dynamic> past = data.where((event) {
           try {
-            String? dateStr = event['date'];
-            if (dateStr == null) return false;
-            DateTime eventDate = DateTime.parse(dateStr);
-            return eventDate.isBefore(now) || (event['isPastEvent'] == true);
-          } catch (e) {
-            //print("Invalid date format for event: $e");
+            final regs = event['registrations'] as List<dynamic>?;
+            if (regs == null || userId == null) return false;
+            final match = regs.firstWhere(
+              (r) => r['userId'] == userId,
+              orElse: () => null,
+            );
+            if (match == null) return false;
+            final status = (match['paymentStatus'] ?? '').toString().toLowerCase();
+            final attended = match['attended'] == true;
+            return status == 'paid' && attended == true;
+          } catch (_) {
             return false;
           }
         }).toList();

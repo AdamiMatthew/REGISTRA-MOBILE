@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'payment_screen.dart';
-import 'feedbackform_screen.dart';
 import 'map_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -96,53 +95,7 @@ class DetailScreen extends StatelessWidget {
     );
   }
 
-  void _showShareDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Share This Event"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.facebook, color: Colors.blue),
-                title: const Text("Facebook"),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _shareToFacebook(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.flutter_dash, color: Colors.black),
-                title: const Text("X"),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _shareToTwitter(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.copy, color: Colors.grey),
-                title: const Text("Copy to Clipboard"),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _copyToClipboard(context);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text("Cancel"),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  
 
   void _shareToFacebook(BuildContext context) async {
     // Create a shorter, more reliable share text
@@ -170,22 +123,9 @@ class DetailScreen extends StatelessWidget {
     }
   }
 
-  void _copyToClipboard(BuildContext context) {
-    final String shareText = "Check out this amazing event: $title\n\nDate: $date\nTime: $time\nLocation: $location\n\nJoin us for an incredible experience!";
-    
-    Clipboard.setData(ClipboardData(text: shareText));
-    _showSuccessSnackBar(context, "Event details copied to clipboard!");
-  }
+  
 
-  void _showSuccessSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  
 
   void _showErrorSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(

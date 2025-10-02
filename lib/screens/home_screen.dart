@@ -28,8 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? userId;
   String? userType;
   String? membership;
-  String selectedEventType = 'All';
-  String selectedLocation = 'All';
+  String selectedEventType = 'All event types';
+  String selectedLocation = 'All locations';
   DateTime? selectedDate;
   TextEditingController dateController = TextEditingController();
   List<String> registeredEventIds = [];
@@ -159,6 +159,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  bool _isSameDate(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+           date1.month == date2.month &&
+           date1.day == date2.day;
+  }
+
   // Schedule notifications for events that are 1 day away
   Future<void> scheduleEventNotifications(List<Event> allEvents) async {
     final now = DateTime.now();
@@ -257,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String url = allevents;
     List<String> queryParams = [];
 
-    if (selectedEventType != 'All') {
+    if (selectedEventType != 'All event types') {
       queryParams.add('type=$selectedEventType');
     }
 
@@ -293,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
         List<Event> filteredEvents = allEvents;
 
         // Apply location filtering
-        if (selectedLocation != 'All') {
+        if (selectedLocation != 'All locations') {
           filteredEvents = filteredEvents.where((event) =>
               event.location.toLowerCase().contains(selectedLocation.toLowerCase())).toList();
         }
@@ -359,18 +365,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         e.eventType == "Workshop" ||
                         e.eventType == "Webinar") &&
                     !e.isPastEvent &&
-                    DateTime.parse(e.date)
-                        .toLocal()
-                        .isAtSameMomentAs(selectedDateOnly))
+                    _isSameDate(DateTime.parse(e.date), selectedDateOnly))
                 .toList();
 
             extraCurricularEvents = filteredEvents
                 .where((e) =>
                     e.eventType == "Activity" &&
                     !e.isPastEvent &&
-                    DateTime.parse(e.date)
-                        .toLocal()
-                        .isAtSameMomentAs(selectedDateOnly))
+                    _isSameDate(DateTime.parse(e.date), selectedDateOnly))
                 .toList();
           } else {
             upcomingEvents = filteredEvents
@@ -794,7 +796,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDropdown(String hint) {
     List<DropdownMenuItem<String>> eventTypes = const [
-      DropdownMenuItem(value: 'All', child: Text('All')),
+      DropdownMenuItem(value: 'All event types', child: Text('All event types')),
       DropdownMenuItem(value: 'Seminar', child: Text('Seminar')),
       DropdownMenuItem(value: 'Workshop', child: Text('Workshop')),
       DropdownMenuItem(value: 'Webinar', child: Text('Webinar')),
@@ -802,7 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     List<DropdownMenuItem<String>> locations = const [
-      DropdownMenuItem(value: 'All', child: Text('All')),
+      DropdownMenuItem(value: 'All locations', child: Text('All locations')),
       DropdownMenuItem(value: 'Caloocan', child: Text('Caloocan')),
       DropdownMenuItem(value: 'Las Piñas', child: Text('Las Piñas')),
       DropdownMenuItem(value: 'Makati', child: Text('Makati')),
@@ -825,12 +827,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          hint,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
+        Semantics(
+          label: hint == "Events" ? "Filter by event type" : hint == "Location" ? "Filter by location" : hint,
+          child: Text(
+            hint,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -858,7 +863,17 @@ class _HomeScreenState extends State<HomeScreen> {
               : hint == "Location"
                   ? selectedLocation
                   : null,
-          items: hint == "Events" ? eventTypes : locations,
+          items: (hint == "Events" ? eventTypes : locations)
+              .map((item) => DropdownMenuItem<String>(
+                    value: item.value,
+                    child: Semantics(
+                      label: hint == "Events"
+                          ? "Event type: ${item.value}"
+                          : "Location: ${item.value}",
+                      child: Text(item.child is Text ? (item.child as Text).data ?? '' : item.value ?? ''),
+                    ),
+                  ))
+              .toList(),
           onChanged: (value) {
             if (value != null) {
               setState(() {
@@ -876,35 +891,55 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDatePicker() {
-    return GestureDetector(
-      onTap: () => _selectDate(context),
-      child: AbsorbPointer(
-        child: TextField(
-          controller: dateController,
-          decoration: InputDecoration(
-            hintText: 'Select date',
-            hintStyle: TextStyle(color: Colors.grey[400]),
-            filled: true,
-            fillColor: Colors.grey[50],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.blue),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            suffixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
+Widget _buildDatePicker() {
+  return GestureDetector(
+    onTap: () => _selectDate(context),
+    child: AbsorbPointer(
+      child: TextField(
+        controller: dateController,
+        decoration: InputDecoration(
+          hintText: 'Select date',
+          hintStyle: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white70   // dark mode: lighter text
+                : Colors.black54,  // light mode: darker text
           ),
-          style: const TextStyle(fontSize: 15),
+          filled: true,
+          fillColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[900]   // dark background for dark mode
+              : Colors.white,      // clean white for light mode
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[700]!
+                  : Colors.grey[400]!,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[700]!
+                  : Colors.grey[400]!,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          suffixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
+        ),
+        style: TextStyle(
+          fontSize: 15,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : Colors.black87,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 }

@@ -320,38 +320,78 @@ class _FeedbackFormState extends State<FeedbackForm> {
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: List.generate(options.length, (i) {
-                final option = options[i];
-                return ChoiceChip(
-                  label: Text(option),
-                  selected: answers[index] == option,
-                  onSelected: (selected) {
-                    setState(() {
-                      answers[index] = selected ? option : null;
-                    });
-                  },
-                  selectedColor: Colors.blue.shade100,
-                  backgroundColor: Colors.grey.shade200,
-                  labelStyle: TextStyle(
-                    color: answers[index] == option
-                        ? Colors.blue.shade900
-                        : Colors.black87,
-                    fontWeight: answers[index] == option
-                        ? FontWeight.bold
-                        : FontWeight.normal,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Responsive column count based on available width
+                final double maxWidth = constraints.maxWidth;
+                int crossAxisCount = 2;
+                if (maxWidth >= 700) {
+                  crossAxisCount = 4;
+                } else if (maxWidth >= 500) {
+                  crossAxisCount = 3;
+                }
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: options.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 3, // Wider than tall for readability
                   ),
-                  side: BorderSide(
-                      color: answers[index] == option
-                          ? Colors.blue
-                          : Colors.grey.shade400),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  elevation: 1,
+                  itemBuilder: (context, i) {
+                    final option = options[i];
+                    final bool selected = answers[index] == option;
+
+                    return Semantics(
+                      button: true,
+                      selected: selected,
+                      label: option,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          setState(() {
+                            answers[index] = selected ? null : option;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          decoration: BoxDecoration(
+                            color: selected ? Colors.blue.shade50 : Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected ? Colors.blue : Colors.grey.shade300,
+                              width: selected ? 1.6 : 1.0,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          alignment: Alignment.center,
+                          child: Text(
+                            option,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              color: selected ? Colors.blue.shade900 : Colors.black87,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
-              }),
+              },
             ),
           ],
         );
@@ -438,78 +478,103 @@ class _FeedbackFormState extends State<FeedbackForm> {
                 'Very Satisfied'
               ];
 
+        const double labelColumnWidth = 140;
+        const double optionColumnWidth = 130;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(width: 120),
-                ...likertOptions.map((option) => Expanded(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            option,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                              color: Colors.black87,
+            const SizedBox(height: 12),
+            // Horizontal scroll container for the Likert grid
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(width: labelColumnWidth),
+                      ...likertOptions.map((option) => Container(
+                            width: optionColumnWidth,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              option,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 16, thickness: 1),
+                  // Rows for each statement
+                  ...statements.asMap().entries.map((entry) {
+                    final rowIndex = entry.key;
+                    final rowLabel = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Statement label column
+                          SizedBox(
+                            width: labelColumnWidth,
+                            child: Text(
+                              rowLabel,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
+                            ),
                           ),
-                        ),
+                          // Option cells with radios
+                          ...List.generate(likertOptions.length, (colIndex) {
+                            final key = '$index-$rowIndex';
+                            final value = colIndex + 1;
+                            return SizedBox(
+                              width: optionColumnWidth,
+                              child: Center(
+                                child: Radio<int>(
+                                  value: value,
+                                  groupValue: answers[key],
+                                  onChanged: (selectedValue) {
+                                    setState(() {
+                                      answers[key] = selectedValue;
+                                    });
+                                  },
+                                  activeColor: Colors.blue.shade700,
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
-                    )),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
-            const Divider(height: 20, thickness: 1),
-            ...statements.asMap().entries.map((entry) {
-              final rowIndex = entry.key;
-              final rowLabel = entry.value;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 120,
-                      child: Text(rowLabel,
-                          style: const TextStyle(
-                              fontSize: 14, color: Colors.black87)),
-                    ),
-                    ...List.generate(likertOptions.length, (colIndex) {
-                      final key = '$index-$rowIndex';
-                      final value = colIndex + 1;
-                      return Expanded(
-                        child: Center(
-                          child: Radio<int>(
-                            value: value,
-                            groupValue: answers[key],
-                            onChanged: (selectedValue) {
-                              setState(() {
-                                answers[key] = selectedValue;
-                              });
-                            },
-                            activeColor: Colors.blue.shade700,
-                            visualDensity: VisualDensity.compact,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              );
-            }),
+            const SizedBox(height: 8),
             const Divider(height: 20, thickness: 1),
           ],
         );
@@ -523,7 +588,7 @@ class _FeedbackFormState extends State<FeedbackForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event Feedback',
+        title: const Text('',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

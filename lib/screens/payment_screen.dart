@@ -18,6 +18,7 @@ class PaymentScreen extends StatefulWidget {
     required this.eventName,
     required this.eventDate,
     required this.eventTime,
+    this.registrationId,
   });
 
   final String eventId;
@@ -25,6 +26,7 @@ class PaymentScreen extends StatefulWidget {
   final String eventName;
   final String eventDate;
   final String eventTime;
+  final String? registrationId; // If resubmitting for an existing registration
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -293,15 +295,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    var reqBody = {
-      "eventId": widget.eventId,
-      "userId": userId,
-      "fullName": fullName,
-      "email": email,
-      "paymentStatus": "pending",
-      "ticketQR": "",
-      "receipt": imageUrl,
-    };
+    final bool isResubmission = widget.registrationId != null && widget.registrationId!.isNotEmpty;
+
+    Map<String, dynamic> reqBody;
+    if (isResubmission) {
+      // Only update existing registration's receipt to avoid duplicates
+      reqBody = {
+        "registrationId": widget.registrationId,
+        "receipt": imageUrl,
+      };
+    } else {
+      reqBody = {
+        "eventId": widget.eventId,
+        "userId": userId,
+        "fullName": fullName,
+        "email": email,
+        "paymentStatus": "pending",
+        "ticketQR": "",
+        "receipt": imageUrl,
+      };
+    }
 
     try {
       var response = await http.post(
@@ -314,7 +327,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       if (response.statusCode == 200) {
-        _showRegistrationSuccessDialog();
+        if (isResubmission) {
+          _showResubmissionSuccessDialog();
+        } else {
+          _showRegistrationSuccessDialog();
+        }
       } else {
         _showErrorSnackbar("Failed to register: ${response.body}");
       }
@@ -323,7 +340,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  void _showRegistrationSuccessDialog() {
+  void _showResubmissionSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -331,6 +348,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text("Receipt Submitted"),
+          content: const Text(
+              "Your receipt has been resubmitted for review. You'll be notified once it's re-verified."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NavbarScreen()),
+                  (route) => false,
+                );
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRegistrationSuccessDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false, // prevents tapping outside to close
+    builder: (BuildContext context) {
+      return WillPopScope(
+        onWillPop: () async => false, // disables back button & swipe back
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text("Registration Successful"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -348,9 +397,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const NavbarScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const NavbarScreen(),
+                  ),
                 );
               },
               child: const Text("Skip"),
@@ -359,9 +410,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               onPressed: () async {
                 Navigator.pop(context);
                 await _addToGoogleCalendar();
-                Navigator.push(
+                Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const NavbarScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const NavbarScreen(),
+                  ),
+                  (route) => false,
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -376,10 +430,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
           ],
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
+
 
   void _showErrorSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -396,9 +452,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         title: const Text("Payment"),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leading: Semantics(
+          label: 'Back',
+          button: true,
+          child: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
       ),
       body: Padding(
@@ -558,7 +619,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
               const SizedBox(height: 40),
               _buildActionButton(
-                  "COMPLETE REGISTRATION", _registerGCash, Colors.green.shade700),
+                  (widget.registrationId != null && widget.registrationId!.isNotEmpty)
+                      ? "RESEND RECEIPT"
+                      : "COMPLETE REGISTRATION",
+                  _registerGCash,
+                  Colors.green.shade700),
               const SizedBox(height: 20),
             ],
           ),

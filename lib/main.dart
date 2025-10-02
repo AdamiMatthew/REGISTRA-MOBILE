@@ -5,6 +5,7 @@ import 'package:final_project/screens/edit_resetpassword.dart';
 import 'package:final_project/screens/eventlist_screen.dart';
 import 'package:final_project/screens/home_screen.dart';
 import 'package:final_project/screens/navbar_screen.dart';
+import 'package:final_project/screens/past_event_screen.dart';
 import 'package:final_project/screens/profile_screen.dart';
 import 'package:final_project/screens/register_screen.dart';
 import 'package:final_project/screens/resetpassword_screen.dart';
@@ -65,7 +66,8 @@ class MainApp extends StatelessWidget {
         '/navbar': (context) => const NavbarScreen(),
         '/edit_resetpassword': (context) => const EditResetpassword(),
         '/admin_homescreen': (context) => const AdminHomeScreen(),
-        
+                '/pastevent': (context) => const PastEventScreen(),
+
         '/event-detail': (context) {
           final args =
               ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;

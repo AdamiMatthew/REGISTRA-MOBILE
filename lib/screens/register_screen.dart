@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:final_project/widgets/custom_dialogs.dart';
@@ -54,6 +55,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String membershipErrorMessage = "";
   String termsErrorMessage = "";
   String generalErrorMessage = "";
+
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
  @override
   void dispose() {
     fullNameController.dispose();
@@ -62,7 +66,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     icpepIdController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        _showTermsAndConditions();
+      };
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        _showTermsAndConditions();
+      };
   }
   void _updatePasswordCriteria(String value) {
     setState(() {
@@ -475,6 +494,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person),
                   hintText: "Full name",
+                  labelText: "Full name",
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: fullNameError ? fullNameErrorMessage : null,
                 ),
@@ -486,6 +506,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.email_outlined),
                   hintText: "Email",
+                  labelText: "Email address",
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: emailError ? emailErrorMessage : null,
                 ),
@@ -499,6 +520,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.phone),
                   hintText: "Contact number",
+                  labelText: "Contact number",
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   counterText: "",
                   errorText: contactNumberError ? contactNumberErrorMessage : null,
@@ -521,6 +543,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.work_outline),
+                  labelText: 'User type',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: userTypeError ? userTypeErrorMessage : null,
                 ),
@@ -542,6 +565,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person_outline),
+                  labelText: 'Membership',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: membershipError ? membershipErrorMessage : null,
                 ),
@@ -554,6 +578,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.badge),
                     hintText: "ICPEP ID",
+                    labelText: "ICPEP ID",
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     errorText: icpepIdError ? icpepIdErrorMessage : null,
                   ),
@@ -566,15 +591,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
                   hintText: "Your password",
+                  labelText: "Password",
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: passwordError ? passwordErrorMessage : null,
-                  suffixIcon: IconButton(
-                    icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        isPasswordVisible = !isPasswordVisible;
-                      });
-                    },
+                  suffixIcon: Semantics(
+                    label: isPasswordVisible ? 'Hide password' : 'Show password',
+                    button: true,
+                    child: IconButton(
+                      tooltip: isPasswordVisible ? 'Hide password' : 'Show password',
+                      icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () {
+                        setState(() {
+                          isPasswordVisible = !isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 onChanged: _updatePasswordCriteria,
@@ -587,15 +618,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
                   hintText: "Confirm password",
+                  labelText: "Confirm password",
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   errorText: confirmPasswordError ? confirmPasswordErrorMessage : null,
-                  suffixIcon: IconButton(
-                    icon: Icon(isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        isConfirmPasswordVisible = !isConfirmPasswordVisible;
-                      });
-                    },
+                  suffixIcon: Semantics(
+                    label: isConfirmPasswordVisible ? 'Hide password' : 'Show password',
+                    button: true,
+                    child: IconButton(
+                      tooltip: isConfirmPasswordVisible ? 'Hide password' : 'Show password',
+                      icon: Icon(isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () {
+                        setState(() {
+                          isConfirmPasswordVisible = !isConfirmPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -709,60 +746,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 children: [
                   Row(
                     children: [
-                      Checkbox(
-                        value: agreedToTerms,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            agreedToTerms = value ?? false;
-                          });
-                        },
-                        activeColor: Colors.blue,
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
+                      Semantics(
+                        label: 'Agree to terms and privacy policy',
+                        child: Checkbox(
+                          value: agreedToTerms,
+                          onChanged: (bool? value) {
                             setState(() {
-                              agreedToTerms = !agreedToTerms;
+                              agreedToTerms = value ?? false;
                             });
                           },
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(color: Colors.black87),
-                              children: [
-                                const TextSpan(text: 'I agree to the '),
-                                WidgetSpan(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _showTermsAndConditions();
-                                    },
-                                    child: const Text(
-                                      'Terms and Conditions',
-                                      style: TextStyle(
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
+                          activeColor: Colors.blue,
+                        ),
+                      ),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: Colors.black87),
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(
+                                text: 'Terms and Conditions',
+                                recognizer: _termsRecognizer,
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
                                 ),
-                                const TextSpan(text: ' and '),
-                                WidgetSpan(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _showTermsAndConditions();
-                                    },
-                                    child: const Text(
-                                      'Privacy Policy',
-                                      style: TextStyle(
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
+                              ),
+                              const TextSpan(text: ' and '),
+                              TextSpan(
+                                text: 'Privacy Policy',
+                                recognizer: _privacyRecognizer,
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),

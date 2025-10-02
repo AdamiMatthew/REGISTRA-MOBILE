@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:final_project/config.dart';
 import 'package:final_project/screens/certificate_screen.dart';
 import 'package:final_project/screens/edit_profile_screen.dart';
-import 'package:final_project/screens/login_screen.dart';
+import 'package:final_project/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,6 +82,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+
+        // Defensive filter: ensure only events where the user's registration is paid and attended
+        final filtered = data.where((event) {
+          try {
+            final regs = event['registrations'] as List<dynamic>?;
+            if (regs == null) return false;
+            final match = regs.firstWhere(
+              (r) => r['userId'] == userId,
+              orElse: () => null,
+            );
+            if (match == null) return false;
+            final status = (match['paymentStatus'] ?? '').toString().toLowerCase();
+            final attended = match['attended'] == true;
+            return status == 'paid' && attended == true;
+          } catch (_) {
+            return false;
+          }
+        }).toList();
         //print("Number of events received: ${data.length}");
 
         if (data.isEmpty) {
@@ -89,17 +107,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         setState(() {
-          pastEvents = data;
+          pastEvents = filtered;
           isLoadingPastEvents = false;
         });
 
-        // Debug output for each event
-        for (var event in data) {
-          //print("Event details:");
-          //print("- Title: ${event['title']}");
-          //print("- Date: ${event['date']}");
-          //print("- Has Certificate: ${event['hasCertificate']}");
-        }
+        // Optionally debug events here
       } else {
         //print("Failed to load events: ${response.body}");
         setState(() => isLoadingPastEvents = false);
@@ -155,37 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  static void customOptionDialog(BuildContext context,
-      {required String title,
-      required String content,
-      required Function onYes}) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title, style: const TextStyle(fontSize: 20)),
-          content: Text(content),
-          actions: <Widget>[
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('No'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                onYes();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Yes'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  
 
   Future<bool> checkFeedbackSubmitted(String userId, String eventId) async {
     final url = Uri.parse('$feedbackCheck?userId=$userId&eventId=$eventId');
@@ -225,36 +207,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.black),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings, color: Colors.black),
             onPressed: () {
-              customOptionDialog(
+              Navigator.push(
                 context,
-                title: "Logout",
-                content: "Are you sure you want to logout?",
-                onYes: () async {
-                  // Clear authentication data but preserve "Remember Me" credentials
-                  SharedPreferences prefs = await SharedPreferences.getInstance();
-                  
-                  // Save "Remember Me" credentials before clearing
-                  String? savedEmail = prefs.getString('saved_email');
-                  String? savedPassword = prefs.getString('saved_password');
-                  bool hadRememberMe = savedEmail != null && savedPassword != null;
-                  
-                  // Clear all preferences
-                  await prefs.clear();
-                  
-                  // Restore "Remember Me" credentials if they existed
-                  if (hadRememberMe) {
-                    await prefs.setString('saved_email', savedEmail!);
-                    await prefs.setString('saved_password', savedPassword!);
-                  }
-                  
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginScreen()),
-                  );
-                },
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
               );
             },
           ),
