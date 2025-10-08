@@ -55,6 +55,90 @@ class DetailScreen extends StatelessWidget {
     }
   }
 
+  bool _isEventToday(String dateString) {
+    try {
+      DateTime parsed;
+      if (dateString.contains('-')) {
+        parsed = DateTime.parse(dateString);
+      } else {
+        parsed = DateFormat('MMMM d, yyyy').parse(dateString);
+      }
+      final now = DateTime.now();
+      return parsed.year == now.year && parsed.month == now.month && parsed.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showSameDayNotAllowedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Registration Closed"),
+          content: const Text("Same-day registrations are not allowed for this event."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool> _hasRegisteredSameDay(String currentEventDate, String userId) async {
+    try {
+      final response = await http.get(Uri.parse('$registered?userId=$userId'));
+      if (response.statusCode != 200) return false;
+      final List<dynamic> events = json.decode(response.body);
+
+      DateTime parseDate(dynamic dateVal) {
+        if (dateVal == null) return DateTime.fromMillisecondsSinceEpoch(0);
+        final String dateStr = dateVal.toString();
+        if (dateStr.contains('-')) {
+          return DateTime.parse(dateStr);
+        }
+        return DateFormat('MMMM d, yyyy').parse(dateStr);
+      }
+
+      final DateTime current = parseDate(currentEventDate);
+      for (final e in events) {
+        try {
+          final DateTime d = parseDate(e['date']);
+          final bool sameDay = d.year == current.year && d.month == current.month && d.day == current.day;
+          if (sameDay && (e['_id']?.toString() != eventId)) {
+            return true;
+          }
+        } catch (_) {}
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showAlreadyRegisteredSameDayDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Registration Blocked"),
+          content: const Text("You are already registered for another event on this date."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<bool> _checkIfRegistered(String eventId, String userId) async {
     try {
       final response = await http.get(
@@ -383,6 +467,16 @@ class DetailScreen extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 onPressed: () async {
+                  if (_isEventToday(date)) {
+                    _showSameDayNotAllowedDialog(context);
+                    return;
+                  }
+                  // Prevent registering for another event on the same date
+                  final bool hasSameDay = await _hasRegisteredSameDay(date, userId);
+                  if (hasSameDay) {
+                    _showAlreadyRegisteredSameDayDialog(context);
+                    return;
+                  }
                   final isRegistered =
                       await _checkIfRegistered(eventId, userId);
                   if (isRegistered) {

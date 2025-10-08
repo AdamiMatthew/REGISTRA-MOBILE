@@ -264,6 +264,89 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ================= Register =================
   void _registerGCash() async {
+    // Block same-day registration
+    try {
+      DateTime parsedDate;
+      if (widget.eventDate.contains('-')) {
+        parsedDate = DateTime.parse(widget.eventDate);
+      } else {
+        parsedDate = DateFormat("MMMM d, yyyy").parse(widget.eventDate);
+      }
+      final now = DateTime.now();
+      final isSameDay = parsedDate.year == now.year && parsedDate.month == now.month && parsedDate.day == now.day;
+      if (isSameDay) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Registration Closed"),
+              content: const Text("Same-day registrations are not allowed for this event."),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
+    } catch (_) {}
+
+    // Prevent multiple registrations on the same day across different events
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? userId = prefs.getString('_id');
+      if (userId != null && userId.isNotEmpty) {
+        final resp = await http.get(Uri.parse('$registered?userId=$userId'));
+        if (resp.statusCode == 200) {
+          final List<dynamic> events = json.decode(resp.body);
+
+          DateTime parseDate(dynamic dateVal) {
+            if (dateVal == null) return DateTime.fromMillisecondsSinceEpoch(0);
+            final String dateStr = dateVal.toString();
+            if (dateStr.contains('-')) {
+              return DateTime.parse(dateStr);
+            }
+            return DateFormat('MMMM d, yyyy').parse(dateStr);
+          }
+
+          final DateTime current = parseDate(widget.eventDate);
+          final bool sameDayExists = events.any((e) {
+            try {
+              final DateTime d = parseDate(e['date']);
+              final bool sameDay = d.year == current.year && d.month == current.month && d.day == current.day;
+              return sameDay && (e['_id']?.toString() != widget.eventId);
+            } catch (_) {
+              return false;
+            }
+          });
+
+          if (sameDayExists) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Text("Registration Blocked"),
+                  content: const Text("You are already registered for another event on this date."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("OK"),
+                    ),
+                  ],
+                );
+              },
+            );
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
     if (imageUrl == null) {
       showDialog(
         context: context,
