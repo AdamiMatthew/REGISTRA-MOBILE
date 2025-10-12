@@ -319,6 +319,11 @@ class _HomeScreenState extends State<HomeScreen> {
               .where((e) => e.eventTarget?.toLowerCase() == "admin" || e.eventTarget?.toLowerCase() == "both")
               .toList();
         }
+
+        // Filter out cancelled events
+        filteredEvents = filteredEvents
+            .where((e) => e.status?.toLowerCase() != "cancelled")
+            .toList();
          //print('Filtered Events (after userType filter): ${filteredEvents.length}');
 
         // Additional filtering for non-members
@@ -346,6 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
               coordinates: event.coordinates,
               image: event.image,
               eventTarget: event.eventTarget,
+              status: event.status,
             );
           }).toList();
         }

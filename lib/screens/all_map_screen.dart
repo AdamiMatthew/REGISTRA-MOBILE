@@ -7,6 +7,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'detail_screen.dart';
 
 class AllMapScreen extends StatefulWidget {
@@ -49,15 +50,26 @@ class AllMapScreen extends StatefulWidget {
 class _AllMapScreenState extends State<AllMapScreen> {
   late MaplibreMapController mapController;
   List<dynamic> events = [];
+  List<dynamic> filteredEvents = [];
   List<Map<String, dynamic>> selectedEvents = [];
   Map<String, dynamic> symbolIdToEvent = {};
   bool _isControllerInitialized = false;
+  String? userType;
+  String? membership;
+  bool _isListExpanded = true;
 
   @override
   void initState() {
     super.initState();
     _requestLocationPermission();
+    _fetchUserData();
     _fetchEvents();
+  }
+
+  Future<void> _fetchUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    userType = prefs.getString('userType');
+    membership = prefs.getString('membership');
   }
 
   Future<void> _requestLocationPermission() async {
@@ -66,13 +78,39 @@ class _AllMapScreenState extends State<AllMapScreen> {
 
   Future<void> _fetchEvents() async {
     try {
-      final response =
-          await http.get(Uri.parse(allevents));
+      // Build URL with query parameters
+      String url = allevents;
+      List<String> queryParams = [];
+      
+      if (userType != null && userType!.isNotEmpty) {
+        queryParams.add('userType=$userType');
+      }
+      if (membership != null && membership!.isNotEmpty) {
+        queryParams.add('membership=$membership');
+      }
+      
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
+      
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data is List) {
+        if (data is Map && data['events'] != null) {
+          // Handle server response with events array
+          final eventsList = data['events'] as List;
+          setState(() {
+            events = eventsList;
+            filteredEvents = eventsList; // Server already filtered, no need for client-side filtering
+          });
+          if (_isControllerInitialized) {
+            await _addEventMarkers();
+          }
+        } else if (data is List) {
+          // Handle direct array response (fallback)
           setState(() {
             events = data;
+            filteredEvents = _filterEventsByUserType(data);
           });
           if (_isControllerInitialized) {
             await _addEventMarkers();
@@ -86,6 +124,34 @@ class _AllMapScreenState extends State<AllMapScreen> {
     } catch (e) {
       // print('Error fetching events: $e');
     }
+  }
+
+  List<dynamic> _filterEventsByUserType(List<dynamic> allEvents) {
+    List<dynamic> filtered = allEvents;
+
+    // Filter events based on userType
+    if (userType?.toLowerCase() == "student") {
+      filtered = filtered
+          .where((e) => e['eventTarget']?.toLowerCase() == "student" || e['eventTarget']?.toLowerCase() == "both")
+          .toList();
+    } else if (userType?.toLowerCase() == "professional") {
+      filtered = filtered
+          .where((e) => e['eventTarget']?.toLowerCase() == "professional" || e['eventTarget']?.toLowerCase() == "both")
+          .toList();
+    } else if (userType?.toLowerCase() == "admin") {
+      filtered = filtered
+          .where((e) => e['eventTarget']?.toLowerCase() == "admin" || e['eventTarget']?.toLowerCase() == "both")
+          .toList();
+    }
+
+    // Additional filtering for non-members
+    if (membership?.toLowerCase() == "non-member") {
+      filtered = filtered
+          .where((e) => e['eventTarget']?.toLowerCase() != "admin")
+          .toList();
+    }
+
+    return filtered;
   }
 
   Future<void> _onMapCreated(MaplibreMapController controller) async {
@@ -107,7 +173,7 @@ class _AllMapScreenState extends State<AllMapScreen> {
           await rootBundle.load('assets/images/location-pin.png');
       final Uint8List markerImage = bytes.buffer.asUint8List();
       await mapController.addImage('custom-marker', markerImage);
-      for (var event in events) {
+      for (var event in filteredEvents) {
         // Skip past events
         if (event['isPastEvent'] == true) {
           continue;
@@ -204,11 +270,11 @@ class _AllMapScreenState extends State<AllMapScreen> {
         children: [
           // Map Section
           Expanded(
-            flex: 2,
+            flex: _isListExpanded ? 2 : 4,
             child: Stack(
               children: [
                 SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6,
+                  height: MediaQuery.of(context).size.height * (_isListExpanded ? 0.6 : 0.85),
                   width: MediaQuery.of(context).size.width,
                   child: MapLibreMap(
                     onMapCreated: _onMapCreated,
@@ -268,6 +334,7 @@ class _AllMapScreenState extends State<AllMapScreen> {
                               borderRadius: BorderRadius.circular(15),
                             ),
                             elevation: 8,
+                            color: Colors.white.withOpacity(0.95),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Row(
@@ -377,8 +444,9 @@ class _AllMapScreenState extends State<AllMapScreen> {
             ),
           ),
           // Events List Section
-          Expanded(
-            flex: 1,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isListExpanded ? MediaQuery.of(context).size.height * 0.4 : 80,
             child: Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -393,7 +461,7 @@ class _AllMapScreenState extends State<AllMapScreen> {
               ),
               child: Column(
                 children: [
-                  // Header
+                  // Header with Arrow
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: const BoxDecoration(
@@ -409,102 +477,131 @@ class _AllMapScreenState extends State<AllMapScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          '${events.where((event) => event['isPastEvent'] != true).length} events',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              '${filteredEvents.where((event) => event['isPastEvent'] != true).length} events',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isListExpanded = !_isListExpanded;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: AnimatedRotation(
+                                  duration: const Duration(milliseconds: 300),
+                                  turns: _isListExpanded ? 0.5 : 0,
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: Colors.blue,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                   // Events List
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: events.where((event) => event['isPastEvent'] != true).length,
-                      itemBuilder: (context, index) {
-                        final availableEvents = events.where((event) => event['isPastEvent'] != true).toList();
-                        final event = availableEvents[index];
-                        
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              _selectEventOnMap(event);
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Image.network(
-                                      event['image'] ?? 'https://www.icpepncr.org/storage/posters/YqcFNpNX8wOxmliHpv1bgcwQ7TLLfJXgd3IdeGbd.jpg',
-                                      width: 60,
-                                      height: 60,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          width: 60,
-                                          height: 60,
-                                          color: Colors.grey[300],
-                                          child: const Icon(Icons.image, color: Colors.grey, size: 20),
-                                        );
-                                      },
+                  if (_isListExpanded)
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredEvents.where((event) => event['isPastEvent'] != true).length,
+                        itemBuilder: (context, index) {
+                          final availableEvents = filteredEvents.where((event) => event['isPastEvent'] != true).toList();
+                          final event = availableEvents[index];
+                          
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                _selectEventOnMap(event);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(
+                                        event['image'] ?? 'https://www.icpepncr.org/storage/posters/YqcFNpNX8wOxmliHpv1bgcwQ7TLLfJXgd3IdeGbd.jpg',
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 60,
+                                            height: 60,
+                                            color: Colors.grey[300],
+                                            child: const Icon(Icons.image, color: Colors.grey, size: 20),
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          event['title'] ?? 'Event Title',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            event['title'] ?? 'Event Title',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          formatDate(event['date'] ?? ''),
-                                          style: const TextStyle(
-                                            color: Colors.blue,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            formatDate(event['date'] ?? ''),
+                                            style: const TextStyle(
+                                              color: Colors.blue,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          event['location'] ?? 'Location',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            event['location'] ?? 'Location',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const Icon(Icons.location_on, size: 16, color: Colors.blue),
-                                ],
+                                    const Icon(Icons.location_on, size: 16, color: Colors.blue),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

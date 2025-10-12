@@ -19,6 +19,7 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
   bool _isProcessing = false;
   bool _showSuccessCard = false;
   bool _showErrorCard = false; // New boolean for error card
+  String _errorMessage = ''; // Store error message
 
   @override
   void dispose() {
@@ -51,6 +52,8 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
       final decryptedJson = decryptAES256CBC(encryptedData, iv);
       final Map<String, dynamic> payload = jsonDecode(decryptedJson);
       final String? id = payload['id'];
+      final String? fullName = payload['fullName'];
+      final String? userType = payload['userType'];
 
       if (id != null && !_isProcessing) {
         setState(() {
@@ -59,6 +62,7 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
 
         _controller.stop();
 
+        // Proceed with attendance update (server will check if event is past)
         final response = await http.put(
           Uri.parse(attendanceUpdate),
           headers: {'Content-Type': 'application/json'},
@@ -74,11 +78,20 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
           setState(() {
             _showSuccessCard = true;
           });
-        } else if (response.statusCode == 400 &&
-            responseBody['message'] == 'QR code has already been used') {
-          // QR code already used
+        } else if (response.statusCode == 400) {
+          // Handle different error cases
+          String errorMsg = responseBody['message'] ?? 'Unknown error';
+          
+          if (errorMsg.contains('already ended') || errorMsg.contains('past events')) {
+            _errorMessage = 'Event Already Ended!';
+          } else if (errorMsg.contains('already been used')) {
+            _errorMessage = 'QR Code Already Used!';
+          } else {
+            _errorMessage = 'Registration Failed!';
+          }
+          
           setState(() {
-            _showErrorCard = true; // Show error card
+            _showErrorCard = true;
           });
         } else {
           // Other errors
@@ -103,6 +116,7 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
               _isProcessing = false;
               _showSuccessCard = false;
               _showErrorCard = false; // Hide error card
+              _errorMessage = '';
             });
             _controller.start();
           }
@@ -179,7 +193,7 @@ class _AdminQrscannerScreenState extends State<AdminQrscannerScreen> {
             _ResultCard(
               icon: Icons.cancel,
               iconColor: Colors.red,
-              message: 'QR Code Already Used!',
+              message: _errorMessage.isNotEmpty ? _errorMessage : 'QR Code Already Used!',
             ),
         ],
       ),

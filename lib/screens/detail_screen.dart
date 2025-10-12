@@ -359,7 +359,7 @@ class DetailScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Facebook Share
                       InkWell(
@@ -383,36 +383,11 @@ class DetailScreen extends StatelessWidget {
                             children: [
                               const Icon(Icons.facebook, color: Colors.white, size: 20),
                               const SizedBox(width: 8),
-                             
-                            ],
-                          ),
-                        ),
-                      ),
-                      // X (Twitter) Share
-                      InkWell(
-                        onTap: () => _shareToTwitter(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
                               const Text(
-                                "X",
+                                "Share on Facebook",
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w500,
                                   fontSize: 14,
                                 ),
                               ),
@@ -467,16 +442,6 @@ class DetailScreen extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 onPressed: () async {
-                  if (_isEventToday(date)) {
-                    _showSameDayNotAllowedDialog(context);
-                    return;
-                  }
-                  // Prevent registering for another event on the same date
-                  final bool hasSameDay = await _hasRegisteredSameDay(date, userId);
-                  if (hasSameDay) {
-                    _showAlreadyRegisteredSameDayDialog(context);
-                    return;
-                  }
                   final isRegistered =
                       await _checkIfRegistered(eventId, userId);
                   if (isRegistered) {

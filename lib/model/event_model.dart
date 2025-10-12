@@ -12,6 +12,7 @@ class Event {
   final List<double> coordinates;
   final String image;
   final String eventTarget;
+  final String status;
 
   Event({
     required this.eventId,
@@ -27,6 +28,7 @@ class Event {
     required this.coordinates,
     required this.image,
     required this.eventTarget,
+    required this.status,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class Event {
       coordinates: List<double>.from((json['coordinates'] as List?)?.map((e) => e.toDouble()) ?? [0.0, 0.0]),
       image: json['image'] ?? '',
       eventTarget: json['eventTarget'] ?? '',
+      status: json['status'] ?? '',
     );
   }
 }

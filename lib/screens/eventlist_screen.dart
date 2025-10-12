@@ -152,8 +152,9 @@ class _EventListScreenState extends State<EventListScreen> {
         bool hasQRImage = registration['ticketQR'] != null && 
                          registration['ticketQR'].isNotEmpty;
         
-        // Only notify if ticket is ready and we haven't notified about this ticket before
-        if (hasQRImage && !_notifiedTickets.contains(registrationId)) {
+        // Only notify if ticket is ready, payment is not rejected, and we haven't notified about this ticket before
+        bool isPaymentRejected = registration['paymentStatus']?.toString().toLowerCase() == 'rejected';
+        if (hasQRImage && !isPaymentRejected && !_notifiedTickets.contains(registrationId)) {
           String formattedDate = '';
           try {
             DateTime eventDate = DateTime.parse(event['date']);
@@ -182,8 +183,8 @@ class _EventListScreenState extends State<EventListScreen> {
           //print('Notified user about ticket for: ${event['title']}');
         }
 
-        // Schedule 1-day-before reminder if not already scheduled
-        if (hasQRImage && !_scheduledReminders.contains(registrationId)) {
+        // Schedule 1-day-before reminder if not already scheduled and payment is not rejected
+        if (hasQRImage && !isPaymentRejected && !_scheduledReminders.contains(registrationId)) {
           try {
             final DateTime eventDate = DateTime.parse(event['date']);
             final DateTime eventDateTime = _combineDateAndTime(eventDate, event['time']?.toString() ?? '');
@@ -345,10 +346,11 @@ class _EventListScreenState extends State<EventListScreen> {
                               orElse: () => null,
                             );
 
-                            // Check if the registration has a ticketQR
+                            // Check if the registration has a ticketQR and payment is not rejected
                             bool hasQRImage = registration != null &&
                                 registration['ticketQR'] != null &&
-                                registration['ticketQR'].isNotEmpty;
+                                registration['ticketQR'].isNotEmpty &&
+                                registration['paymentStatus']?.toString().toLowerCase() != 'rejected';
 
                             // Check if payment is rejected
                             bool isPaymentRejected = registration != null &&

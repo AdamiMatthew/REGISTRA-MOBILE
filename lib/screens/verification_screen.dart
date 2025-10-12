@@ -56,8 +56,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       var reqBody = {
         "email": email,
         "otp": otpCode,
+        "token": widget.token,
       };
-
+      print(reqBody);
       try {
         var response = await http.post(
           Uri.parse(verification),
